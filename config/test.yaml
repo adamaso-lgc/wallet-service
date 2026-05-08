@@ -1,0 +1,6 @@
+# Base config — shared defaults across all environments.
+# Override any value in config.<APP_ENV>.yaml or via WALLET_* environment variables.
+
+grpc_port: "50051"
+http_port: "8080"
+worker_buf_size: 100
