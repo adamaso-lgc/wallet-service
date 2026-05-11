@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -26,7 +25,7 @@ type Wallet struct {
 
 func NewWallet(ownerID string, currency string, initialBalance float64) (*Wallet, error) {
 	if ownerID == "" {
-		return nil, errors.New("ownerID is required")
+		return nil, ErrOwnerIDRequired
 	}
 	if _, err := NewMoney(initialBalance, currency); err != nil {
 		return nil, err
@@ -38,7 +37,6 @@ func NewWallet(ownerID string, currency string, initialBalance float64) (*Wallet
 			Type:        EventWalletCreated,
 			AggregateID: uuid.New().String(),
 			OccurredAt:  time.Now().UTC(),
-			Version:     1,
 		},
 		OwnerID:        ownerID,
 		Currency:       currency,
@@ -67,7 +65,6 @@ func (w *Wallet) Deposit(amount float64, reference string) error {
 			Type:        EventWalletDeposited,
 			AggregateID: w.id,
 			OccurredAt:  time.Now().UTC(),
-			Version:     w.version + 1,
 		},
 		Amount:       amount,
 		BalanceAfter: newBalance.amount,
@@ -90,7 +87,7 @@ func (w *Wallet) Withdraw(amount float64, reference string) error {
 		return err
 	}
 	if withdraw.amount == 0 {
-		return errors.New("withdraw amount must be greater than zero")
+		return ErrInvalidAmount
 	}
 
 	newBalance, err := w.balance.Subtract(withdraw)
@@ -104,7 +101,6 @@ func (w *Wallet) Withdraw(amount float64, reference string) error {
 			Type:        EventMoneyWithdrawn,
 			AggregateID: w.id,
 			OccurredAt:  time.Now().UTC(),
-			Version:     w.version + 1,
 		},
 		Amount:       amount,
 		BalanceAfter: newBalance.amount,
@@ -126,7 +122,7 @@ func (w *Wallet) DebitForTransfer(amount float64, counterpartyID string, referen
 		return err
 	}
 	if debit.amount == 0 {
-		return errors.New("transfer amount must be greater than zero")
+		return ErrInvalidAmount
 	}
 
 	newBalance, err := w.balance.Subtract(debit)
@@ -140,7 +136,6 @@ func (w *Wallet) DebitForTransfer(amount float64, counterpartyID string, referen
 			Type:        EventMoneyTransferred,
 			AggregateID: w.id,
 			OccurredAt:  time.Now().UTC(),
-			Version:     w.version + 1,
 		},
 		Amount:         amount,
 		BalanceAfter:   newBalance.amount,
@@ -160,7 +155,7 @@ func (w *Wallet) CreditForTransfer(amount float64, counterpartyID string, refere
 		return err
 	}
 	if credit.amount == 0 {
-		return errors.New("transfer amount must be greater than zero")
+		return ErrInvalidAmount
 	}
 
 	newBalance, _ := w.balance.Add(credit)
@@ -171,7 +166,6 @@ func (w *Wallet) CreditForTransfer(amount float64, counterpartyID string, refere
 			Type:        EventMoneyTransferred,
 			AggregateID: w.id,
 			OccurredAt:  time.Now().UTC(),
-			Version:     w.version + 1,
 		},
 		Amount:         amount,
 		BalanceAfter:   newBalance.amount,
@@ -193,7 +187,6 @@ func (w *Wallet) Freeze(reference string) error {
 			Type:        EventWalletFrozen,
 			AggregateID: w.id,
 			OccurredAt:  time.Now().UTC(),
-			Version:     w.version + 1,
 		},
 		Reference: reference,
 	}
@@ -217,7 +210,7 @@ func (w *Wallet) Apply(event Event) error {
 		w.status = StatusFrozen
 		return nil
 	default:
-		return errors.New("unsupported event type")
+		return ErrUnsupportedEvent
 	}
 }
 
@@ -238,7 +231,13 @@ func (w *Wallet) onWalletCreated(e WalletCreatedEvent) error {
 
 func (w *Wallet) ensureActive() error {
 	if w.status != StatusActive {
-		return fmt.Errorf("wallet is not active (status: %s)", w.status)
+		return fmt.Errorf("%w (status: %s)", ErrWalletNotActive, w.status)
 	}
 	return nil
+}
+
+// NewWalletFromHistory reconstructs a Wallet by replaying its event history.
+func NewWalletFromHistory(events []Event) (*Wallet, error) {
+	w := &Wallet{}
+	return w, w.loadFromHistory(w, events)
 }

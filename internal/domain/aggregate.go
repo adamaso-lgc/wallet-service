@@ -31,7 +31,7 @@ func (a *BaseAggregate) Raise(aggregate Aggregate, event Event) error {
 	return nil
 }
 
-func (a *BaseAggregate) LoadFromHistory(aggregate Aggregate, events []Event) error {
+func (a *BaseAggregate) loadFromHistory(aggregate Aggregate, events []Event) error {
 	for _, event := range events {
 		if err := aggregate.Apply(event); err != nil {
 			return err
