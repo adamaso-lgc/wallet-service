@@ -1,29 +1,26 @@
-package app_test
+package application_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/adamaso/wallet-service/internal/app"
+	"github.com/adamaso/wallet-service/internal/application"
 	"github.com/adamaso/wallet-service/internal/domain"
-	"github.com/adamaso/wallet-service/internal/infrastructure/memory"
+	"github.com/adamaso/wallet-service/internal/infrastructure/fake"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// newHandler wires up a fresh handler with real in-memory infrastructure.
-func newHandler(t *testing.T) (*app.WalletCommandHandler, *memory.EventBus) {
+// newHandler wires up a fresh handler with a fake in-memory repository.
+func newHandler(t *testing.T) *application.WalletCommandHandler {
 	t.Helper()
-	bus := memory.NewEventBus(10)
-	t.Cleanup(bus.Close)
-	repo := memory.NewWalletRepository(memory.NewEventStore(), bus)
-	return app.NewWalletCommandHandler(repo), bus
+	return application.NewWalletCommandHandler(fake.NewWalletRepository())
 }
 
 // createWallet is a test helper that creates a wallet and returns its ID.
-func createWallet(t *testing.T, h *app.WalletCommandHandler) string {
+func createWallet(t *testing.T, h *application.WalletCommandHandler) string {
 	t.Helper()
-	result, err := h.CreateWallet(context.Background(), app.CreateWalletCommand{
+	result, err := h.CreateWallet(context.Background(), application.CreateWalletCommand{
 		OwnerID:        "owner-1",
 		Currency:       "USD",
 		InitialBalance: 100,
@@ -35,9 +32,9 @@ func createWallet(t *testing.T, h *app.WalletCommandHandler) string {
 // --- CreateWallet ---
 
 func TestCreateWallet_Success(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 
-	result, err := h.CreateWallet(context.Background(), app.CreateWalletCommand{
+	result, err := h.CreateWallet(context.Background(), application.CreateWalletCommand{
 		OwnerID:        "owner-1",
 		Currency:       "USD",
 		InitialBalance: 500,
@@ -48,26 +45,26 @@ func TestCreateWallet_Success(t *testing.T) {
 }
 
 func TestCreateWallet_InvalidInput(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 
 	tests := []struct {
 		name    string
-		cmd     app.CreateWalletCommand
+		cmd     application.CreateWalletCommand
 		wantErr error
 	}{
 		{
 			name:    "missing owner",
-			cmd:     app.CreateWalletCommand{Currency: "USD", InitialBalance: 100},
+			cmd:     application.CreateWalletCommand{Currency: "USD", InitialBalance: 100},
 			wantErr: domain.ErrOwnerIDRequired,
 		},
 		{
 			name:    "missing currency",
-			cmd:     app.CreateWalletCommand{OwnerID: "owner-1", InitialBalance: 100},
+			cmd:     application.CreateWalletCommand{OwnerID: "owner-1", InitialBalance: 100},
 			wantErr: domain.ErrCurrencyRequired,
 		},
 		{
 			name:    "negative balance",
-			cmd:     app.CreateWalletCommand{OwnerID: "owner-1", Currency: "USD", InitialBalance: -10},
+			cmd:     application.CreateWalletCommand{OwnerID: "owner-1", Currency: "USD", InitialBalance: -10},
 			wantErr: domain.ErrInvalidAmount,
 		},
 	}
@@ -83,10 +80,10 @@ func TestCreateWallet_InvalidInput(t *testing.T) {
 // --- Deposit ---
 
 func TestDeposit_Success(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 	id := createWallet(t, h)
 
-	err := h.Deposit(context.Background(), app.DepositCommand{
+	err := h.Deposit(context.Background(), application.DepositCommand{
 		WalletID:  id,
 		Amount:    50,
 		Reference: "top-up",
@@ -96,9 +93,9 @@ func TestDeposit_Success(t *testing.T) {
 }
 
 func TestDeposit_WalletNotFound(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 
-	err := h.Deposit(context.Background(), app.DepositCommand{
+	err := h.Deposit(context.Background(), application.DepositCommand{
 		WalletID: "nonexistent",
 		Amount:   50,
 	})
@@ -107,11 +104,11 @@ func TestDeposit_WalletNotFound(t *testing.T) {
 }
 
 func TestDeposit_OnFrozenWallet(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 	id := createWallet(t, h)
-	require.NoError(t, h.FreezeWallet(context.Background(), app.FreezeWalletCommand{WalletID: id}))
+	require.NoError(t, h.FreezeWallet(context.Background(), application.FreezeWalletCommand{WalletID: id}))
 
-	err := h.Deposit(context.Background(), app.DepositCommand{WalletID: id, Amount: 50})
+	err := h.Deposit(context.Background(), application.DepositCommand{WalletID: id, Amount: 50})
 
 	require.ErrorIs(t, err, domain.ErrWalletNotActive)
 }
@@ -119,10 +116,10 @@ func TestDeposit_OnFrozenWallet(t *testing.T) {
 // --- Withdraw ---
 
 func TestWithdraw_Success(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 	id := createWallet(t, h)
 
-	err := h.Withdraw(context.Background(), app.WithdrawCommand{
+	err := h.Withdraw(context.Background(), application.WithdrawCommand{
 		WalletID:  id,
 		Amount:    40,
 		Reference: "purchase",
@@ -132,10 +129,10 @@ func TestWithdraw_Success(t *testing.T) {
 }
 
 func TestWithdraw_InsufficientFunds(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 	id := createWallet(t, h) // balance: 100
 
-	err := h.Withdraw(context.Background(), app.WithdrawCommand{
+	err := h.Withdraw(context.Background(), application.WithdrawCommand{
 		WalletID: id,
 		Amount:   200,
 	})
@@ -144,9 +141,9 @@ func TestWithdraw_InsufficientFunds(t *testing.T) {
 }
 
 func TestWithdraw_WalletNotFound(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 
-	err := h.Withdraw(context.Background(), app.WithdrawCommand{
+	err := h.Withdraw(context.Background(), application.WithdrawCommand{
 		WalletID: "nonexistent",
 		Amount:   10,
 	})
@@ -157,11 +154,11 @@ func TestWithdraw_WalletNotFound(t *testing.T) {
 // --- Transfer ---
 
 func TestTransfer_Success(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 	sourceID := createWallet(t, h)      // balance: 100
 	destinationID := createWallet(t, h) // balance: 100
 
-	err := h.Transfer(context.Background(), app.TransferCommand{
+	err := h.Transfer(context.Background(), application.TransferCommand{
 		SourceWalletID:      sourceID,
 		DestinationWalletID: destinationID,
 		Amount:              60,
@@ -172,10 +169,10 @@ func TestTransfer_Success(t *testing.T) {
 }
 
 func TestTransfer_SourceNotFound(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 	destinationID := createWallet(t, h)
 
-	err := h.Transfer(context.Background(), app.TransferCommand{
+	err := h.Transfer(context.Background(), application.TransferCommand{
 		SourceWalletID:      "nonexistent",
 		DestinationWalletID: destinationID,
 		Amount:              50,
@@ -185,10 +182,10 @@ func TestTransfer_SourceNotFound(t *testing.T) {
 }
 
 func TestTransfer_DestinationNotFound(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 	sourceID := createWallet(t, h)
 
-	err := h.Transfer(context.Background(), app.TransferCommand{
+	err := h.Transfer(context.Background(), application.TransferCommand{
 		SourceWalletID:      sourceID,
 		DestinationWalletID: "nonexistent",
 		Amount:              50,
@@ -198,11 +195,11 @@ func TestTransfer_DestinationNotFound(t *testing.T) {
 }
 
 func TestTransfer_InsufficientFunds(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 	sourceID := createWallet(t, h) // balance: 100
 	destinationID := createWallet(t, h)
 
-	err := h.Transfer(context.Background(), app.TransferCommand{
+	err := h.Transfer(context.Background(), application.TransferCommand{
 		SourceWalletID:      sourceID,
 		DestinationWalletID: destinationID,
 		Amount:              200,
@@ -214,10 +211,10 @@ func TestTransfer_InsufficientFunds(t *testing.T) {
 // --- FreezeWallet ---
 
 func TestFreezeWallet_Success(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 	id := createWallet(t, h)
 
-	err := h.FreezeWallet(context.Background(), app.FreezeWalletCommand{
+	err := h.FreezeWallet(context.Background(), application.FreezeWalletCommand{
 		WalletID:  id,
 		Reference: "compliance",
 	})
@@ -226,19 +223,19 @@ func TestFreezeWallet_Success(t *testing.T) {
 }
 
 func TestFreezeWallet_AlreadyFrozen(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 	id := createWallet(t, h)
-	require.NoError(t, h.FreezeWallet(context.Background(), app.FreezeWalletCommand{WalletID: id}))
+	require.NoError(t, h.FreezeWallet(context.Background(), application.FreezeWalletCommand{WalletID: id}))
 
-	err := h.FreezeWallet(context.Background(), app.FreezeWalletCommand{WalletID: id})
+	err := h.FreezeWallet(context.Background(), application.FreezeWalletCommand{WalletID: id})
 
 	require.ErrorIs(t, err, domain.ErrWalletNotActive)
 }
 
 func TestFreezeWallet_NotFound(t *testing.T) {
-	h, _ := newHandler(t)
+	h := newHandler(t)
 
-	err := h.FreezeWallet(context.Background(), app.FreezeWalletCommand{WalletID: "nonexistent"})
+	err := h.FreezeWallet(context.Background(), application.FreezeWalletCommand{WalletID: "nonexistent"})
 
 	require.ErrorIs(t, err, domain.ErrNotFound)
 }

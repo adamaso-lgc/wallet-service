@@ -1,4 +1,4 @@
-package app
+package application
 
 import (
 	"context"
@@ -7,8 +7,6 @@ import (
 	"github.com/adamaso/wallet-service/internal/domain"
 )
 
-// WalletCommandHandler handles all wallet use cases.
-// It is the only entry point into the domain from the outside world.
 type WalletCommandHandler struct {
 	repo domain.WalletRepository
 }
@@ -56,8 +54,6 @@ func (h *WalletCommandHandler) Withdraw(ctx context.Context, cmd WithdrawCommand
 	return nil
 }
 
-// Transfer debits the source wallet and credits the destination wallet.
-// The two saves are intentionally not atomic — see TransferCommand for details.
 func (h *WalletCommandHandler) Transfer(ctx context.Context, cmd TransferCommand) error {
 	source, err := h.repo.Get(ctx, cmd.SourceWalletID)
 	if err != nil {
@@ -75,11 +71,8 @@ func (h *WalletCommandHandler) Transfer(ctx context.Context, cmd TransferCommand
 		return fmt.Errorf("credit: %w", err)
 	}
 
-	if err := h.repo.Save(ctx, source); err != nil {
-		return fmt.Errorf("save source wallet: %w", err)
-	}
-	if err := h.repo.Save(ctx, destination); err != nil {
-		return fmt.Errorf("save destination wallet: %w", err)
+	if err := h.repo.SaveAll(ctx, source, destination); err != nil {
+		return fmt.Errorf("save transfer: %w", err)
 	}
 	return nil
 }

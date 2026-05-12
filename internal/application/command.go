@@ -1,4 +1,4 @@
-package app
+package application
 
 // Commands are plain data structs — they carry intent, no logic.
 
@@ -24,9 +24,7 @@ type WithdrawCommand struct {
 	Reference string
 }
 
-// TransferCommand moves funds between two wallets.
-// Note: the two-aggregate save is not atomic. A production system would use
-// a saga or outbox pattern to handle partial failures.
+// TransferCommand moves funds between two wallets atomically via SaveAll.
 type TransferCommand struct {
 	SourceWalletID      string
 	DestinationWalletID string
