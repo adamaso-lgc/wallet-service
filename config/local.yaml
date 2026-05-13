@@ -4,3 +4,6 @@ database:
 
 grpc:
   port: 50051
+
+metrics:
+  port: 9090

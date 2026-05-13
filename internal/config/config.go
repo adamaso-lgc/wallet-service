@@ -11,6 +11,7 @@ import (
 type Config struct {
 	Database DatabaseConfig
 	GRPC     GRPCConfig
+	Metrics  MetricsConfig
 }
 
 type DatabaseConfig struct {
@@ -22,9 +23,18 @@ type GRPCConfig struct {
 	Port int `mapstructure:"port"`
 }
 
+type MetricsConfig struct {
+	Port int `mapstructure:"port"`
+}
+
 // GRPCAddr returns the full listen address for the gRPC server.
 func (c Config) GRPCAddr() string {
 	return fmt.Sprintf(":%d", c.GRPC.Port)
+}
+
+// MetricsAddr returns the full listen address for the metrics HTTP server.
+func (c Config) MetricsAddr() string {
+	return fmt.Sprintf(":%d", c.Metrics.Port)
 }
 
 func MustLoad(env string) Config {

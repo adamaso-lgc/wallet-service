@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/adamaso/wallet-service/internal/bootstrap"
 	"github.com/adamaso/wallet-service/internal/config"
+	"github.com/adamaso/wallet-service/internal/logger"
 )
 
 func main() {
@@ -17,17 +17,21 @@ func main() {
 		env = "local"
 	}
 
+	log := logger.New(env)
+
 	cfg := config.MustLoad(env)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	app, err := bootstrap.New(ctx, cfg, env)
+	app, err := bootstrap.New(ctx, cfg, log)
 	if err != nil {
-		log.Fatalf("failed to initialise app: %v", err)
+		log.Error("failed to initialise app", "error", err)
+		os.Exit(1)
 	}
 
 	if err := app.Run(ctx); err != nil {
-		log.Fatalf("app stopped with error: %v", err)
+		log.Error("app stopped with error", "error", err)
+		os.Exit(1)
 	}
 }
