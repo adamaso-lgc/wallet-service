@@ -3,11 +3,14 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
 	walletv1 "github.com/adamaso/wallet-service/gen/proto/v1"
@@ -15,15 +18,20 @@ import (
 	"github.com/adamaso/wallet-service/internal/config"
 	grpcserver "github.com/adamaso/wallet-service/internal/grpc"
 	"github.com/adamaso/wallet-service/internal/infrastructure/postgres"
+	"github.com/adamaso/wallet-service/internal/logger"
 )
 
 type Service struct {
-	grpcServer *grpc.Server
-	pool       *pgxpool.Pool
-	grpcAddr   string
+	grpcServer   *grpc.Server
+	healthServer *health.Server
+	pool         *pgxpool.Pool
+	grpcAddr     string
+	log          *slog.Logger
 }
 
-func New(ctx context.Context, cfg config.Config) (*Service, error) {
+func New(ctx context.Context, cfg config.Config, env string) (*Service, error) {
+	log := logger.New(env)
+
 	pool, err := newPool(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -35,14 +43,23 @@ func New(ctx context.Context, cfg config.Config) (*Service, error) {
 	app := application.NewApplication(repo, store)
 	srv := grpcserver.NewServer(app)
 
-	grpcSrv := grpc.NewServer()
+	grpcSrv := grpc.NewServer(
+		grpc.UnaryInterceptor(grpcserver.UnaryLoggingInterceptor(log)),
+	)
 	walletv1.RegisterWalletServiceServer(grpcSrv, srv)
+
+	healthSrv := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(grpcSrv, healthSrv)
+	healthSrv.SetServingStatus(walletv1.WalletService_ServiceDesc.ServiceName, grpc_health_v1.HealthCheckResponse_SERVING)
+
 	reflection.Register(grpcSrv)
 
 	return &Service{
-		grpcServer: grpcSrv,
-		pool:       pool,
-		grpcAddr:   cfg.GRPCAddr(),
+		grpcServer:   grpcSrv,
+		healthServer: healthSrv,
+		pool:         pool,
+		grpcAddr:     cfg.GRPCAddr(),
+		log:          log,
 	}, nil
 }
 
@@ -59,7 +76,7 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}()
 
-	fmt.Printf("gRPC server listening on %s\n", s.grpcAddr)
+	s.log.Info("gRPC server started", slog.String("addr", s.grpcAddr))
 
 	select {
 	case <-ctx.Done():
@@ -73,6 +90,9 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 func (s *Service) Shutdown(ctx context.Context) {
+	s.log.Info("shutting down")
+	s.healthServer.Shutdown()
+
 	stopped := make(chan struct{})
 	go func() {
 		s.grpcServer.GracefulStop()
@@ -86,6 +106,7 @@ func (s *Service) Shutdown(ctx context.Context) {
 	}
 
 	s.pool.Close()
+	s.log.Info("shutdown complete")
 }
 
 func newPool(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {

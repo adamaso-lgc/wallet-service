@@ -22,7 +22,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	app, err := bootstrap.New(ctx, cfg)
+	app, err := bootstrap.New(ctx, cfg, env)
 	if err != nil {
 		log.Fatalf("failed to initialise app: %v", err)
 	}
