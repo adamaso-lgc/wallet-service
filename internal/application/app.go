@@ -7,15 +7,11 @@ import (
 	"github.com/adamaso/wallet-service/internal/projection"
 )
 
-// Application is the composition root for the application layer.
-// It groups all command and query handlers and is the single entry point
-// that cmd/server wires up with concrete infrastructure implementations.
 type Application struct {
 	Commands Commands
 	Queries  Queries
 }
 
-// Commands groups all write-side handlers.
 type Commands struct {
 	CreateWallet *command.CreateWalletHandler
 	Deposit      *command.DepositHandler
@@ -23,16 +19,12 @@ type Commands struct {
 	Transfer     *command.TransferHandler
 	FreezeWallet *command.FreezeWalletHandler
 }
-
-// Queries groups all read-side handlers.
 type Queries struct {
 	GetWallet          *query.GetWalletHandler
 	ListWalletsByOwner *query.ListWalletsByOwnerHandler
 }
 
-// New wires all handlers with their dependencies and returns a ready
-// Application. Called once at startup from cmd/server/main.go.
-func New(repo domain.WalletRepository, store projection.WalletStore) *Application {
+func NewApplication(repo domain.WalletRepository, store projection.WalletStore) *Application {
 	return &Application{
 		Commands: Commands{
 			CreateWallet: command.NewCreateWalletHandler(repo),

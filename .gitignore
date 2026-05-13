@@ -1,5 +1,4 @@
 .idea
 bin
-pkg/api
 .env
-
+gen/

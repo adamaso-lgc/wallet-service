@@ -1,1 +1,6 @@
+database:
+  url: "postgres://wallet:wallet@localhost:5432/wallet?sslmode=disable"
+  max_conns: 10
 
+grpc:
+  port: 50051

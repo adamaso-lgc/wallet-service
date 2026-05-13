@@ -1,0 +1,6 @@
+database:
+  url: "${DATABASE_URL}"
+  max_conns: 20
+
+grpc:
+  port: 50051
