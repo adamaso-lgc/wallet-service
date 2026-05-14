@@ -26,6 +26,10 @@ func NewTransferHandler(repo domain.WalletRepository) *TransferHandler {
 }
 
 func (h *TransferHandler) Handle(ctx context.Context, cmd Transfer) error {
+	if cmd.SourceWalletID == cmd.DestinationWalletID {
+		return fmt.Errorf("cannot transfer to self")
+	}
+
 	source, err := h.repo.Get(ctx, cmd.SourceWalletID)
 	if err != nil {
 		return fmt.Errorf("get source wallet: %w", err)

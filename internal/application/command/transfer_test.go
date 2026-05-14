@@ -4,12 +4,27 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/adamaso/wallet-service/internal/application/command"
 	"github.com/adamaso/wallet-service/internal/domain"
 	"github.com/adamaso/wallet-service/internal/infrastructure/fake"
 )
+
+func TestTransfer_SelfTransfer(t *testing.T) {
+	repo := fake.NewWalletRepository()
+	walletID := mustCreateWallet(t, repo)
+
+	err := command.NewTransferHandler(repo).Handle(context.Background(), command.Transfer{
+		SourceWalletID:      walletID,
+		DestinationWalletID: walletID,
+		Amount:              10,
+	})
+
+	require.Error(t, err)
+	assert.Equal(t, "cannot transfer to self", err.Error())
+}
 
 func TestTransfer_Success(t *testing.T) {
 	repo := fake.NewWalletRepository()

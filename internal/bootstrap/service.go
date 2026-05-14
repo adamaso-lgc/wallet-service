@@ -42,7 +42,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*Service, er
 	repo := postgres.NewWalletRepository(pool)
 	store := postgres.NewWalletViewStore(pool)
 	app := application.NewApplication(repo, store)
-	srv := grpcserver.NewServer(app)
+	srv := grpcserver.NewWalletHandler(app)
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
