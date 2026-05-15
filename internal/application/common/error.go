@@ -1,4 +1,4 @@
-package grpcserver
+package common
 
 import (
 	"errors"
@@ -9,9 +9,9 @@ import (
 	"github.com/adamaso/wallet-service/internal/domain"
 )
 
-// toGRPCError maps domain sentinel errors to the correct gRPC status code.
-// nil is returned as nil so callers can write: return x, toGRPCError(err)
-func toGRPCError(err error) error {
+// ToGRPCError maps domain sentinel errors to the correct gRPC status code.
+// nil is returned as nil so callers can write: return x, ToGRPCError(err)
+func ToGRPCError(err error) error {
 	if err == nil {
 		return nil
 	}

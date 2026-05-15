@@ -1,4 +1,4 @@
-package postgres
+package eventstore
 
 import (
 	"errors"
@@ -15,7 +15,7 @@ import (
 // --- buildInsertParams ---
 
 func TestBuildInsertParams_SingleWalletSingleEvent(t *testing.T) {
-	repo := NewWalletRepository(nil)
+	repo := NewWalletRepository(nil, nil)
 	wallet := mustWallet(t, "owner-1", "USD", 100)
 	events := wallet.GetUncommittedEvents()
 
@@ -33,7 +33,7 @@ func TestBuildInsertParams_SingleWalletSingleEvent(t *testing.T) {
 }
 
 func TestBuildInsertParams_VersionSequence(t *testing.T) {
-	repo := NewWalletRepository(nil)
+	repo := NewWalletRepository(nil, nil)
 	wallet := mustWallet(t, "owner-1", "USD", 100)
 	require.NoError(t, wallet.Deposit(50, "top-up"))
 	// wallet now has 2 uncommitted events (Created + Deposited), version=2
@@ -48,7 +48,7 @@ func TestBuildInsertParams_VersionSequence(t *testing.T) {
 }
 
 func TestBuildInsertParams_MultipleWallets(t *testing.T) {
-	repo := NewWalletRepository(nil)
+	repo := NewWalletRepository(nil, nil)
 	w1 := mustWallet(t, "owner-1", "USD", 100) // 1 event
 	w2 := mustWallet(t, "owner-2", "EUR", 200) // 1 event
 
@@ -67,7 +67,7 @@ func TestBuildInsertParams_MultipleWallets(t *testing.T) {
 }
 
 func TestBuildInsertParams_VersionContinuesFromExistingHistory(t *testing.T) {
-	repo := NewWalletRepository(nil)
+	repo := NewWalletRepository(nil, nil)
 	wallet := mustWallet(t, "owner-1", "USD", 100)
 	// Simulate the wallet having been saved once: version=1, no uncommitted events.
 	wallet.ClearUncommittedEvents()

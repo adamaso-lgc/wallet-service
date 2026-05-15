@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/adamaso/wallet-service/internal/infrastructure/eventstore"
+	"github.com/adamaso/wallet-service/internal/infrastructure/projection"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -19,9 +21,6 @@ import (
 
 	walletv1 "github.com/adamaso/wallet-service/gen/proto/v1"
 	"github.com/adamaso/wallet-service/internal/application"
-	"github.com/adamaso/wallet-service/internal/config"
-	grpcserver "github.com/adamaso/wallet-service/internal/grpc"
-	"github.com/adamaso/wallet-service/internal/infrastructure/postgres"
 )
 
 type Service struct {
@@ -33,28 +32,28 @@ type Service struct {
 	log           *slog.Logger
 }
 
-func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*Service, error) {
+func New(ctx context.Context, cfg Config, log *slog.Logger) (*Service, error) {
 	pool, err := newPool(ctx, cfg, log)
 	if err != nil {
 		return nil, err
 	}
 
-	repo := postgres.NewWalletRepository(pool)
-	store := postgres.NewWalletViewStore(pool)
+	projector := projection.NewWalletProjector()
+	repo := eventstore.NewWalletRepository(pool, projector)
+	store := projection.NewWalletViewRepository(pool)
 	app := application.NewApplication(repo, store)
-	srv := grpcserver.NewWalletHandler(app)
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-	metrics := grpcserver.NewMetrics(reg)
+	metrics := NewMetrics(reg)
 
 	grpcSrv := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
-			grpcserver.UnaryLoggingInterceptor(log),
-			grpcserver.UnaryMetricsInterceptor(metrics),
+			UnaryLoggingInterceptor(log),
+			UnaryMetricsInterceptor(metrics),
 		),
 	)
-	walletv1.RegisterWalletServiceServer(grpcSrv, srv)
+	walletv1.RegisterWalletServiceServer(grpcSrv, app)
 
 	healthSrv := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcSrv, healthSrv)
@@ -131,7 +130,7 @@ func (s *Service) Shutdown(ctx context.Context) {
 	s.log.Info("shutdown complete")
 }
 
-func newPool(ctx context.Context, cfg config.Config, log *slog.Logger) (*pgxpool.Pool, error) {
+func newPool(ctx context.Context, cfg Config, log *slog.Logger) (*pgxpool.Pool, error) {
 	poolCfg, err := pgxpool.ParseConfig(cfg.Database.URL)
 	if err != nil {
 		return nil, fmt.Errorf("parse database url: %w", err)

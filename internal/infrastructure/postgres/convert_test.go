@@ -10,7 +10,7 @@ import (
 func TestUUIDFromString_Valid(t *testing.T) {
 	const valid = "550e8400-e29b-41d4-a716-446655440000"
 
-	u, err := uuidFromString(valid)
+	u, err := UUIDFromString(valid)
 
 	require.NoError(t, err)
 	assert.True(t, u.Valid)
@@ -29,7 +29,7 @@ func TestUUIDFromString_Invalid(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := uuidFromString(tc.input)
+			_, err := UUIDFromString(tc.input)
 			require.Error(t, err)
 		})
 	}
@@ -49,7 +49,7 @@ func TestNumericFromFloat64(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			n, err := numericFromFloat64(tc.input)
+			n, err := NumericFromFloat64(tc.input)
 
 			require.NoError(t, err)
 			assert.True(t, n.Valid)

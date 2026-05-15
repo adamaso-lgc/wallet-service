@@ -1,4 +1,4 @@
-package postgres
+package eventstore
 
 import (
 	"context"
@@ -11,8 +11,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/adamaso/wallet-service/internal/domain"
+	"github.com/adamaso/wallet-service/internal/infrastructure/postgres"
 	"github.com/adamaso/wallet-service/internal/infrastructure/postgres/db"
 )
+
+// Projector applies a domain event to the projection (read model) within a transaction.
+type Projector interface {
+	Apply(ctx context.Context, dbtx db.DBTX, event domain.Event) error
+}
 
 // walletItems is an internal grouping of a wallet with its uncommitted events.
 type walletItems struct {
@@ -24,18 +30,18 @@ type WalletRepository struct {
 	pool      *pgxpool.Pool
 	queries   *db.Queries
 	codec     *Codec
-	projector *WalletProjector
+	projector Projector
 }
 
 // Compile-time check that WalletRepository satisfies domain.WalletRepository.
 var _ domain.WalletRepository = (*WalletRepository)(nil)
 
-func NewWalletRepository(pool *pgxpool.Pool) *WalletRepository {
+func NewWalletRepository(pool *pgxpool.Pool, projector Projector) *WalletRepository {
 	return &WalletRepository{
 		pool:      pool,
 		queries:   db.New(),
 		codec:     NewCodec(),
-		projector: NewWalletProjector(),
+		projector: projector,
 	}
 }
 
@@ -80,7 +86,7 @@ func (r *WalletRepository) SaveAll(ctx context.Context, wallets ...*domain.Walle
 }
 
 func (r *WalletRepository) Get(ctx context.Context, id string) (*domain.Wallet, error) {
-	aggUUID, err := uuidFromString(id)
+	aggUUID, err := postgres.UUIDFromString(id)
 	if err != nil {
 		return nil, fmt.Errorf("parse aggregate id: %w", err)
 	}
@@ -112,7 +118,7 @@ func (r *WalletRepository) buildInsertParams(collected []walletItems) (*db.Inser
 		for i, event := range it.events {
 			version := startVersion + int64(i) + 1
 
-			aggUUID, err := uuidFromString(event.GetAggregateID())
+			aggUUID, err := postgres.UUIDFromString(event.GetAggregateID())
 			if err != nil {
 				return nil, fmt.Errorf("parse aggregate id: %w", err)
 			}

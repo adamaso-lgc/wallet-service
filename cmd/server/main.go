@@ -7,8 +7,6 @@ import (
 	"syscall"
 
 	"github.com/adamaso/wallet-service/internal/bootstrap"
-	"github.com/adamaso/wallet-service/internal/config"
-	"github.com/adamaso/wallet-service/internal/logger"
 )
 
 func main() {
@@ -17,9 +15,9 @@ func main() {
 		env = "local"
 	}
 
-	log := logger.New(env)
+	log := bootstrap.NewLogger(env)
 
-	cfg := config.MustLoad(env)
+	cfg := bootstrap.MustLoad(env)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

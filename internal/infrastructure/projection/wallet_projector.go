@@ -1,4 +1,4 @@
-package postgres
+package projection
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/adamaso/wallet-service/internal/domain"
+	"github.com/adamaso/wallet-service/internal/infrastructure/postgres"
 	"github.com/adamaso/wallet-service/internal/infrastructure/postgres/db"
 )
 
@@ -38,11 +39,11 @@ func (p *WalletProjector) Apply(ctx context.Context, dbtx db.DBTX, event domain.
 }
 
 func (p *WalletProjector) onWalletCreated(ctx context.Context, dbtx db.DBTX, e domain.WalletCreatedEvent) error {
-	id, err := uuidFromString(e.GetAggregateID())
+	id, err := postgres.UUIDFromString(e.GetAggregateID())
 	if err != nil {
 		return err
 	}
-	balance, err := numericFromFloat64(e.InitialBalance)
+	balance, err := postgres.NumericFromFloat64(e.InitialBalance)
 	if err != nil {
 		return err
 	}
@@ -59,11 +60,11 @@ func (p *WalletProjector) onWalletCreated(ctx context.Context, dbtx db.DBTX, e d
 }
 
 func (p *WalletProjector) onBalanceChanged(ctx context.Context, dbtx db.DBTX, aggregateID string, balanceAfter float64, updatedAt time.Time) error {
-	id, err := uuidFromString(aggregateID)
+	id, err := postgres.UUIDFromString(aggregateID)
 	if err != nil {
 		return err
 	}
-	balance, err := numericFromFloat64(balanceAfter)
+	balance, err := postgres.NumericFromFloat64(balanceAfter)
 	if err != nil {
 		return err
 	}
@@ -75,7 +76,7 @@ func (p *WalletProjector) onBalanceChanged(ctx context.Context, dbtx db.DBTX, ag
 }
 
 func (p *WalletProjector) onWalletFrozen(ctx context.Context, dbtx db.DBTX, e domain.WalletFrozenEvent) error {
-	id, err := uuidFromString(e.GetAggregateID())
+	id, err := postgres.UUIDFromString(e.GetAggregateID())
 	if err != nil {
 		return err
 	}

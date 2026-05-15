@@ -1,4 +1,4 @@
-package postgres
+package projection
 
 import (
 	"context"
@@ -9,24 +9,29 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/adamaso/wallet-service/internal/domain"
+	"github.com/adamaso/wallet-service/internal/infrastructure/postgres"
 	"github.com/adamaso/wallet-service/internal/infrastructure/postgres/db"
-	"github.com/adamaso/wallet-service/internal/projection"
 )
 
-type WalletViewStore struct {
+type Repository interface {
+	GetWallet(ctx context.Context, id string) (*WalletView, error)
+	ListWalletsByOwner(ctx context.Context, ownerID string) ([]*WalletView, error)
+}
+
+// Compile-time check that WalletViewRepository satisfies Repository.
+var _ Repository = (*WalletViewRepository)(nil)
+
+type WalletViewRepository struct {
 	pool    *pgxpool.Pool
 	queries *db.Queries
 }
 
-// Compile-time check that WalletViewStore satisfies projection.WalletStore.
-var _ projection.WalletStore = (*WalletViewStore)(nil)
-
-func NewWalletViewStore(pool *pgxpool.Pool) *WalletViewStore {
-	return &WalletViewStore{pool: pool, queries: db.New()}
+func NewWalletViewRepository(pool *pgxpool.Pool) *WalletViewRepository {
+	return &WalletViewRepository{pool: pool, queries: db.New()}
 }
 
-func (s *WalletViewStore) GetWallet(ctx context.Context, id string) (*projection.WalletView, error) {
-	aggUUID, err := uuidFromString(id)
+func (s *WalletViewRepository) GetWallet(ctx context.Context, id string) (*WalletView, error) {
+	aggUUID, err := postgres.UUIDFromString(id)
 	if err != nil {
 		return nil, fmt.Errorf("parse wallet id: %w", err)
 	}
@@ -42,13 +47,13 @@ func (s *WalletViewStore) GetWallet(ctx context.Context, id string) (*projection
 	return toWalletView(row)
 }
 
-func (s *WalletViewStore) ListWalletsByOwner(ctx context.Context, ownerID string) ([]*projection.WalletView, error) {
+func (s *WalletViewRepository) ListWalletsByOwner(ctx context.Context, ownerID string) ([]*WalletView, error) {
 	rows, err := s.queries.ListWalletViewsByOwner(ctx, s.pool, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("list wallet views: %w", err)
 	}
 
-	views := make([]*projection.WalletView, 0, len(rows))
+	views := make([]*WalletView, 0, len(rows))
 	for _, row := range rows {
 		v, err := toWalletView(row)
 		if err != nil {
@@ -59,14 +64,14 @@ func (s *WalletViewStore) ListWalletsByOwner(ctx context.Context, ownerID string
 	return views, nil
 }
 
-func toWalletView(row *db.WalletView) (*projection.WalletView, error) {
-	balance, err := numericToFloat64(row.Balance)
+func toWalletView(row *db.WalletView) (*WalletView, error) {
+	balance, err := postgres.NumericToFloat64(row.Balance)
 	if err != nil {
 		return nil, fmt.Errorf("convert balance: %w", err)
 	}
 
-	return &projection.WalletView{
-		ID:        uuidToString(row.ID),
+	return &WalletView{
+		ID:        postgres.UUIDToString(row.ID),
 		OwnerID:   row.OwnerID,
 		Balance:   balance,
 		Currency:  row.Currency,

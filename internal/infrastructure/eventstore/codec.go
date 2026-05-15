@@ -1,4 +1,4 @@
-package postgres
+package eventstore
 
 import (
 	"encoding/json"

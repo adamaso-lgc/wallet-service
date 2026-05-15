@@ -1,14 +1,14 @@
-package postgres_test
+package eventstore_test
 
 import (
 	"testing"
 	"time"
 
+	"github.com/adamaso/wallet-service/internal/infrastructure/eventstore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/adamaso/wallet-service/internal/domain"
-	"github.com/adamaso/wallet-service/internal/infrastructure/postgres"
 )
 
 // baseEvent builds a minimal BaseEvent for use in event constructors.
@@ -22,7 +22,7 @@ func baseEvent(aggregateID string, eventType domain.EventType) domain.BaseEvent 
 }
 
 func TestCodec_RoundTrip(t *testing.T) {
-	codec := postgres.NewCodec()
+	codec := eventstore.NewCodec()
 	const aggID = "550e8400-e29b-41d4-a716-446655440000"
 
 	tests := []struct {
@@ -95,7 +95,7 @@ func TestCodec_RoundTrip(t *testing.T) {
 }
 
 func TestCodec_Encode_ReturnsCorrectEventType(t *testing.T) {
-	codec := postgres.NewCodec()
+	codec := eventstore.NewCodec()
 	event := domain.WalletCreatedEvent{
 		BaseEvent: baseEvent("550e8400-e29b-41d4-a716-446655440000", domain.EventWalletCreated),
 	}
@@ -107,7 +107,7 @@ func TestCodec_Encode_ReturnsCorrectEventType(t *testing.T) {
 }
 
 func TestCodec_Decode_UnknownEventType(t *testing.T) {
-	codec := postgres.NewCodec()
+	codec := eventstore.NewCodec()
 
 	_, err := codec.Decode("UnknownEvent", []byte(`{}`))
 
@@ -116,7 +116,7 @@ func TestCodec_Decode_UnknownEventType(t *testing.T) {
 }
 
 func TestCodec_Decode_MalformedPayload(t *testing.T) {
-	codec := postgres.NewCodec()
+	codec := eventstore.NewCodec()
 
 	_, err := codec.Decode(string(domain.EventWalletCreated), []byte(`not-json`))
 

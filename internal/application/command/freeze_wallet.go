@@ -2,15 +2,13 @@ package command
 
 import (
 	"context"
-	"fmt"
 
+	"google.golang.org/protobuf/types/known/emptypb"
+
+	walletv1 "github.com/adamaso/wallet-service/gen/proto/v1"
+	"github.com/adamaso/wallet-service/internal/application/common"
 	"github.com/adamaso/wallet-service/internal/domain"
 )
-
-type FreezeWallet struct {
-	WalletID  string
-	Reference string
-}
 
 type FreezeWalletHandler struct {
 	repo domain.WalletRepository
@@ -20,16 +18,16 @@ func NewFreezeWalletHandler(repo domain.WalletRepository) *FreezeWalletHandler {
 	return &FreezeWalletHandler{repo: repo}
 }
 
-func (h *FreezeWalletHandler) Handle(ctx context.Context, cmd FreezeWallet) error {
-	wallet, err := h.repo.Get(ctx, cmd.WalletID)
+func (h *FreezeWalletHandler) Handle(ctx context.Context, req *walletv1.FreezeWalletRequest) (*emptypb.Empty, error) {
+	wallet, err := h.repo.Get(ctx, req.WalletId)
 	if err != nil {
-		return fmt.Errorf("get wallet: %w", err)
+		return nil, common.ToGRPCError(err)
 	}
-	if err := wallet.Freeze(cmd.Reference); err != nil {
-		return fmt.Errorf("freeze: %w", err)
+	if err := wallet.Freeze(req.Reference); err != nil {
+		return nil, common.ToGRPCError(err)
 	}
 	if err := h.repo.Save(ctx, wallet); err != nil {
-		return fmt.Errorf("save wallet: %w", err)
+		return nil, common.ToGRPCError(err)
 	}
-	return nil
+	return &emptypb.Empty{}, nil
 }

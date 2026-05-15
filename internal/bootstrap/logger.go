@@ -1,12 +1,12 @@
-package logger
+package bootstrap
 
 import (
 	"log/slog"
 	"os"
 )
 
-// New creates a structured logger. JSON in production, human-readable text locally.
-func New(env string) *slog.Logger {
+// NewLogger creates a structured logger. JSON in production, human-readable text locally.
+func NewLogger(env string) *slog.Logger {
 	var handler slog.Handler
 
 	opts := &slog.HandlerOptions{Level: slog.LevelInfo}

@@ -1,13 +1,13 @@
-package grpcserver
+package common
 
 import (
+	"github.com/adamaso/wallet-service/internal/infrastructure/projection"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	walletv1 "github.com/adamaso/wallet-service/gen/proto/v1"
-	"github.com/adamaso/wallet-service/internal/projection"
 )
 
-func toWalletResponse(v *projection.WalletView) *walletv1.WalletResponse {
+func ToWalletResponse(v *projection.WalletView) *walletv1.WalletResponse {
 	return &walletv1.WalletResponse{
 		WalletId:  v.ID,
 		OwnerId:   v.OwnerID,
