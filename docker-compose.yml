@@ -15,20 +15,6 @@ services:
       timeout: 5s
       retries: 5
 
-  migrate:
-    image: ghcr.io/pressly/goose:latest
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./migrations:/migrations
-    environment:
-      GOOSE_DRIVER: postgres
-      GOOSE_DBSTRING: "postgres://wallet:wallet@postgres:5432/wallet?sslmode=disable"
-      GOOSE_MIGRATION_DIR: /migrations
-    command: up
-    restart: on-failure
-
   prometheus:
     image: prom/prometheus:latest
     ports:

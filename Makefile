@@ -69,7 +69,9 @@ migrate-status: ## Show migration status (goose status)
 
 docker-up: ## Start Postgres and run migrations
 	docker compose up -d postgres
-	docker compose run --rm migrate
+	@echo "Waiting for Postgres to be ready..."
+	@until docker compose exec postgres pg_isready -U wallet > /dev/null 2>&1; do sleep 1; done
+	$(GOOSE_ENV) $(GOOSE) up
 
 docker-down: ## Stop and remove containers
 	docker compose down
