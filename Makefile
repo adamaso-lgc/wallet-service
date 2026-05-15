@@ -12,7 +12,7 @@ GOOSE  := go tool goose
 SQLC   := sqlc
 BUF    := buf
 
-.PHONY: help build run test lint generate \
+.PHONY: help build run test test-v test-integration lint generate \
         migrate migrate-down migrate-reset migrate-status \
         docker-up docker-down
 
@@ -31,6 +31,12 @@ run: ## Run the server locally (APP_ENV=local)
 
 test: ## Run all unit tests
 	go test ./...
+
+test-v: ## Run all tests with verbose output
+	go test -v ./...
+
+test-integration: ## Run integration tests with verbose output (requires Docker)
+	go test -v ./internal/service/...
 
 lint: ## Run go vet (install golangci-lint for richer linting)
 	go vet ./...

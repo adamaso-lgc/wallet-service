@@ -11,27 +11,32 @@ A learning project exploring **DDD**, **event sourcing**, **CQRS**, and **gRPC**
 | Queries | sqlc (generated) |
 | Migrations | goose |
 | Config | viper |
+| Integration tests | testcontainers-go |
 
 ## Architecture
 
 ```
-cmd/server/          → entry point
+cmd/server/                        → entry point
+config/                            → environment config files (viper)
+api/proto/v1/                      → .proto source files
+gen/proto/v1/                      → generated Go (gitignored — run `make generate`)
+migrations/                        → goose SQL migrations
 internal/
-  domain/            → aggregates, events, errors (no dependencies)
-  application/
-    command/         → one file per command + handler
-    query/           → one file per query + handler
-  projection/        → WalletView DTO + WalletStore interface
+  domain/                          → aggregates, events, value objects, errors (no dependencies)
+  service/                         → one file per operation; implements WalletServiceServer
   infrastructure/
-    postgres/        → repository, projector, codec, view store
-    fake/            → in-memory test doubles
-  grpc/              → server, interceptors, error mapping
-  bootstrap/         → wires everything together
-  config/            → viper config
-api/proto/v1/        → .proto source files
-gen/proto/v1/        → generated Go (gitignored — run `make generate`)
-migrations/          → goose SQL migrations
+    eventstore/                    → event-sourced wallet repository + codec
+    projection/                    → WalletView read model, projector, view repository
+    postgres/                      → sqlc-generated queries + type converters
+  bootstrap/                       → wires everything together (server, middleware, logger, config)
 ```
+
+### Key design decisions
+
+- **Event sourcing**: wallet state is derived by replaying domain events stored in `wallet_events`. No mutable state rows.
+- **Synchronous projection**: the `WalletProjector` updates `wallet_views` in the same transaction as the event write — reads are always consistent with writes.
+- **Vertical slices in `service/`**: each operation (`create_wallet.go`, `deposit.go`, …) is self-contained. Shared helpers (`error.go`, `mapper.go`) are unexported within the package.
+- **No application layer**: commands and queries flow directly from the gRPC handler into `service.Service`, which holds the repository and view store.
 
 ## Quick Start
 
@@ -49,11 +54,13 @@ grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
 ## Development
 
 ```bash
-make test             # run all tests
-make generate         # buf generate + sqlc generate
-make migrate          # apply pending migrations
-make migrate-status   # show migration state
-make migrate-down     # roll back last migration
+make test               # run all tests (quiet)
+make test-v             # run all tests with verbose output
+make test-integration   # run integration tests only (requires Docker)
+make generate           # buf generate + sqlc generate
+make migrate            # apply pending migrations
+make migrate-status     # show migration state
+make migrate-down       # roll back last migration
 ```
 
 ## Roadmap
@@ -62,5 +69,4 @@ make migrate-down     # roll back last migration
 - [ ] Prometheus metrics (gRPC interceptor + `/metrics` endpoint)
 - [ ] OpenTelemetry tracing
 - [ ] JWT auth interceptor
-- [ ] Integration tests (testcontainers)
 - [ ] DB ping retry on startup

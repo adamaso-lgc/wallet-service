@@ -20,10 +20,10 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	walletv1 "github.com/adamaso/wallet-service/gen/proto/v1"
-	"github.com/adamaso/wallet-service/internal/application"
+	"github.com/adamaso/wallet-service/internal/service"
 )
 
-type Service struct {
+type Server struct {
 	grpcServer    *grpc.Server
 	healthServer  *health.Server
 	metricsServer *http.Server
@@ -32,7 +32,7 @@ type Service struct {
 	log           *slog.Logger
 }
 
-func New(ctx context.Context, cfg Config, log *slog.Logger) (*Service, error) {
+func New(ctx context.Context, cfg Config, log *slog.Logger) (*Server, error) {
 	pool, err := newPool(ctx, cfg, log)
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func New(ctx context.Context, cfg Config, log *slog.Logger) (*Service, error) {
 	projector := projection.NewWalletProjector()
 	repo := eventstore.NewWalletRepository(pool, projector)
 	store := projection.NewWalletViewRepository(pool)
-	app := application.NewApplication(repo, store)
+	svc := service.NewService(repo, store)
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
@@ -53,7 +53,7 @@ func New(ctx context.Context, cfg Config, log *slog.Logger) (*Service, error) {
 			UnaryMetricsInterceptor(metrics),
 		),
 	)
-	walletv1.RegisterWalletServiceServer(grpcSrv, app)
+	walletv1.RegisterWalletServiceServer(grpcSrv, svc)
 
 	healthSrv := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcSrv, healthSrv)
@@ -65,7 +65,7 @@ func New(ctx context.Context, cfg Config, log *slog.Logger) (*Service, error) {
 	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 	metricsSrv := &http.Server{Addr: cfg.MetricsAddr(), Handler: mux}
 
-	return &Service{
+	return &Server{
 		grpcServer:    grpcSrv,
 		healthServer:  healthSrv,
 		metricsServer: metricsSrv,
@@ -75,7 +75,7 @@ func New(ctx context.Context, cfg Config, log *slog.Logger) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) Run(ctx context.Context) error {
+func (s *Server) Run(ctx context.Context) error {
 	lis, err := net.Listen("tcp", s.grpcAddr)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", s.grpcAddr, err)
@@ -108,7 +108,7 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 }
 
-func (s *Service) Shutdown(ctx context.Context) {
+func (s *Server) Shutdown(ctx context.Context) {
 	s.log.Info("shutting down")
 	s.healthServer.Shutdown()
 
